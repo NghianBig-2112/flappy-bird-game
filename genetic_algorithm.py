@@ -2,6 +2,20 @@ import pygame
 import math
 import numpy as np
 import random
+import json
+
+def save_best_bird(chromosome, filename="best_bird.json"):
+	# save best gene to txt
+	with open(filename, "w") as f:
+		json.dump(chromosome, f, indent=4)
+	print(f"Save model successfully to {filename}")
+
+def load_best_bird(filename="best_bird.json"):
+	# Read chromosome from best_bird.txt
+	with open(filename, "r") as f:
+		chromosome = json.load(f)
+	return chromosome
+
 
 # --- Color ---
 TUBE_COLOR  = (56, 240, 43)
@@ -62,7 +76,7 @@ class Bird:
 		self.image = bird_image
 
 		# --- GA attributes ---
-		self.chromosome = [random.uniform(-2, 2) for i in range(6)]	# gene bird
+		self.chromosome = [random.uniform(-3, 3) for i in range(6)]	# gene bird
 		self.fitness = 0
 		self.alive = True
 		self.time_alive = 0
@@ -99,7 +113,7 @@ class Bird:
 		# use sigmoid function to decide (output: 0.0 to 1.0)
 		output = 1 / (1 + np.exp(-y))
 
-		if output > 0.5 and self.velocity > 0:
+		if output > 0.45 and self.velocity > 0:
 			self.fly_up()
 
 class Tube:
@@ -164,6 +178,10 @@ POP_SIZE = 30
 N_INPUTS = 5     # number input of no ron
 N_WEIGHTS = 6
 population_bird = [Bird(bird_y) for _ in range(POP_SIZE)]
+saved_gene = load_best_bird("best_bird.json")
+if saved_gene:
+	population_bird[0].chromosome = saved_gene
+	print("Con chim số 0 đang sử dụng bộ gene vô địch đã lưu!")
 tubes = [
 	Tube(tube1_x),
 	Tube(tube2_x),
@@ -215,7 +233,6 @@ while running:
 			if nearest_tube is None or tube.x < nearest_tube.x:
 				nearest_tube = tube
 		
-		# Draw 2 line from bird center to top_tube and bottom_tube
 
 	# --- Update live bird ---
 	alive_birds = [b for b in population_bird if b.alive]
@@ -226,6 +243,7 @@ while running:
 
 		# bird thingking and decide flap?
 		if nearest_tube:
+			# Draw 2 line from bird center to top_tube and bottom_tube
 			pygame.draw.line(screen, NEON_PINK, (bird.x + BIRD_WIDTH //2, bird.y + BIRD_HEIGHT // 2), (nearest_tube.x, nearest_tube.y), width=2)
 			pygame.draw.line(screen, NEON_CYAN, (bird.x + BIRD_WIDTH //2, bird.y + BIRD_HEIGHT // 2), (nearest_tube.x, nearest_tube.y + GATE_HEIGHT), width=2)
 			inputs = get_inputs(bird, nearest_tube)
@@ -264,6 +282,10 @@ while running:
 		for bird in alive_birds:
 			if tube.x + TUBE_WIDTH <= BIRD_X and not tube.passed:
 				bird.score += 1
+				# terminal
+				if bird.score == 50:
+					pausing = True
+					save_best_bird(bird.chromosome, "best_bird.json")
 		if tube.x + TUBE_WIDTH <= BIRD_X and not tube.passed:
 			# check tube pass all live bird
 			tube.passed = True
@@ -278,12 +300,13 @@ while running:
 	for bird in alive_birds:
 		screen.blit(bird.image, (bird.x, bird.y))
 
-	# if pausing:
-	# 	screen.blit(gameover_image, (100, 100))
-	# 	game_over_txt = font.render("Game over, score:" + str(score), True, TEXT_COLOR)
-	# 	screen.blit(game_over_txt, (WIDTH // 2 - 110, 200))
-	# 	press_space_txt = font.render("Press space to continue", True, TEXT_COLOR)
-	# 	screen.blit(press_space_txt, (WIDTH // 2 - 110, 240))
+
+	if pausing:
+		screen.blit(gameover_image, (100, 100))
+		game_over_txt = font.render("Game over, score:" + str(score), True, TEXT_COLOR)
+		screen.blit(game_over_txt, (WIDTH // 2 - 110, 200))
+		press_space_txt = font.render("Press space to continue", True, TEXT_COLOR)
+		screen.blit(press_space_txt, (WIDTH // 2 - 110, 240))
 
 	# --- Hiển thị thông tin ---
 	gen_txt   = font.render(f"Generation: {generation}", True, TEXT_COLOR)
