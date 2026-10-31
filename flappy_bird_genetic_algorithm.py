@@ -1,55 +1,20 @@
 import pygame
+
 import math
 import numpy as np
 import random
 import json
 
-def save_best_bird(chromosome, filename="best_bird.json"):
-	# save best gene to txt
-	with open(filename, "w") as f:
-		json.dump(chromosome, f, indent=4)
-	print(f"Save model successfully to {filename}")
-
-def load_best_bird(filename="best_bird.json"):
-	# Read chromosome from best_bird.txt
-	with open(filename, "r") as f:
-		chromosome = json.load(f)
-	return chromosome
-
-
-# --- Color ---
-TUBE_COLOR  = (56, 240, 43)
-TEXT_COLOR  = (235, 240, 255)
-
-NEON_PINK   = (255, 60, 170)    # chữ Game over
-NEON_CYAN   = (60, 230, 255)    # chữ hướng dẫn
-
-# --- Screen ---
-WIDTH, HEIGHT = 432, 768
+from config import *
+from brain impor *
+from entities import *
+from genetic_algorithm import *
 
 pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+screen = pygame.display.set_mode((config.SCREEN_WIDTH, config.SCREEN_HEIGHT))
 pygame.display.set_caption("Flappy Bird")
 running = True
 clock = pygame.time.Clock()
-
-# --- Bird ---
-BIRD_WIDTH, BIRD_HEIGHT = 51, 36
-BIRD_X = WIDTH // 5
-bird_y = HEIGHT // 2
-GRAVITY = 0.5
-bird_velocity = 0	# speed down of bird
-FLAP_VELOCITY = 7 	# speed up of bird
-
-# --- Tube ---
-TUBE_WIDTH, TUBE_HEIGHT = 78, 480
-TUBE_VELOCITY = 2   # Speed of tube move to the left
-GATE_HEIGHT = 170	# distance of 2 tubes (tube and tube_inv)
-
-TUBE_INTERVAL = 250	# time next tube appear
-tube1_x = WIDTH
-tube2_x = tube1_x + TUBE_INTERVAL
-tube3_x = tube2_x + TUBE_INTERVAL
 
 # --- Background image ---
 background_image = pygame.image.load("assets/background-day.png").convert()
@@ -57,131 +22,20 @@ background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))
 # --- Bird image ---
 bird_image = pygame.image.load("assets/yellowbird-midflap.png").convert_alpha()
 bird_image = pygame.transform.scale(bird_image, (BIRD_WIDTH, BIRD_HEIGHT))
-
 # --- Tube down image ---
 tube_image_down = pygame.image.load("assets/pipe-green.png").convert_alpha()
 tube_image_down = pygame.transform.scale(tube_image_down, (TUBE_WIDTH, TUBE_HEIGHT))
 # --- Tube top image ---
 tube_image_top = pygame.transform.flip(tube_image_down, False, True)
-
 # --- Gameover image ---
 gameover_image = pygame.image.load("assets/gameover.png").convert_alpha()
 
-class Bird:
-	def __init__(self, y):
-		self.x = BIRD_X
-		self.y = y
-		self.velocity = bird_velocity
-		self.flap = FLAP_VELOCITY
-		self.image = bird_image
-
-		# --- GA attributes ---
-		self.chromosome = [random.uniform(-3, 3) for i in range(6)]	# gene bird
-		self.fitness = 0
-		self.alive = True
-		self.time_alive = 0
-		self.score = 0
-
-	def fly_up(self):
-		self.velocity = 0
-		self.velocity -= self.flap
-
-	def fly_down(self):
-		self.y += self.velocity
-		self.velocity += GRAVITY
-
-	def get_rect(self):
-		return pygame.Rect(self.x, self.y, BIRD_WIDTH, BIRD_HEIGHT)
-
-	# decide jump?
-	def think(self, inputs):
-		'''
-		inputs[0] = bird.y              # vị trí chim (đang cao hay thấp?)
-		inputs[1] = bird.velocity  		# đang rơi nhanh hay chậm?
-		inputs[2] = dist_to_tube        # cách cột bao xa?
-		inputs[3] = gap_top_y           # khe hở phía trên ở đâu?
-		inputs[4] = gap_bottom_y        # khe hở phía dưới ở đâu?
-
-		neuron: y = w * x + b
-		-> y = w1 * x1 + w2 * x2 + w3 * x3 + w4 * x4 + w5 * x5 + b
-		'''
-		y = 0
-		for i in range(len(inputs)):
-			y += self.chromosome[i] * inputs[i]
-		y += self.chromosome[-1]
-
-		# use sigmoid function to decide (output: 0.0 to 1.0)
-		output = 1 / (1 + np.exp(-y))
-
-		if output > 0.45 and self.velocity > 0:
-			self.fly_up()
-
-class Tube:
-	def __init__(self, x):
-		self.x = x
-		self.y = random.randint(int(HEIGHT * 0.3), int(HEIGHT * 0.6))
-		self.tube_image_down = tube_image_down
-		self.tube_image_top = tube_image_top
-		self.passed = False
-
-# --- Built Geenetic algorithm
-class GeneticAlgorithm:
-	def selection(self, population):
-		# Choose top 50% individual bird have best fitness
-		sorted_pop = sorted(population, key=lambda b: b.fitness, reverse=True)
-		survivors_bird = sorted_pop[:len(sorted_pop) // 2]
-		return survivors_bird
-
-	def crossover(self, parent_dad, parent_mom):
-		# Crossover: get random each gene from dad and mama
-		child_chromosome = []
-		for i in range(len(parent_dad.chromosome)):
-			if random.uniform(0, 1) < 0.5:
-				child_chromosome.append(parent_dad.chromosome[i])
-			else:
-				child_chromosome.append(parent_mom.chromosome[i])
-		return child_chromosome
-
-	def mutate(self, child_chromosome, mutation_rate=0.1):
-		# Mutation gene: ech gene have 10% opportunity for small change
-		for i in range(len(child_chromosome)):
-			if random.uniform(0, 1) < mutation_rate:
-				child_chromosome[i] += random.gauss(mu=0, sigma=0.3)
-		return child_chromosome
-
-	def nex_generation(self, population):
-		# Create new generation from present population
-		survivors = self.selection(population)
-		new_population = []
-
-		# Keep the best individual bird (elitism)
-		best = survivors[0]
-		elite = Bird(bird_y)
-		elite.chromosome = best.chromosome[:]
-		print("-" * 30)
-		print(elite.chromosome)
-		new_population.append(elite)
-
-		# Create the remaining offstring using crossover + mutate
-		while len(new_population) < POP_SIZE:
-			parent_dad = random.choice(survivors)
-			parent_mom = random.choice(survivors)
-			child = Bird(bird_y)
-			child.chromosome = self.crossover(parent_dad, parent_mom)
-			child.chromosome = self.mutate(child.chromosome)
-			new_population.append(child)
-		
-		return new_population
-
-# init object
-POP_SIZE = 30
-N_INPUTS = 5     # number input of no ron
-N_WEIGHTS = 6
-population_bird = [Bird(bird_y) for _ in range(POP_SIZE)]
-saved_gene = load_best_bird("best_bird.json")
-if saved_gene:
-	population_bird[0].chromosome = saved_gene
-	print("Con chim số 0 đang sử dụng bộ gene vô địch đã lưu!")
+# Create a population
+population_bird = [Bird(BIRD_START_Y, bird_image, brain = NeuralBrain(num_inputs=NUM_INPUTS)) for _ in range(POP_SIZE)]
+# --- Tube ---
+tube1_x = SCREEN_WIDTH
+tube2_x = tube1_x + TUBE_INTERVAL
+tube3_x = tube2_x + TUBE_INTERVAL
 tubes = [
 	Tube(tube1_x),
 	Tube(tube2_x),
@@ -189,38 +43,16 @@ tubes = [
 ]
 
 # --- Init Genetic Algorithm
-ga_model = GeneticAlgorithm()
+ga_model = genetic_algorithm.GeneticAlgorithm()
 generation = 1
 
 # --- Variable caculate ---
-score = 0
 font = pygame.font.SysFont("sans", 20)
 # is program continue?
 pausing = False
 
-# Get x information
-def get_inputs(bird, tube):
-	# index of bird
-	bird_y_center = bird.y + BIRD_HEIGHT // 2
-	# bird velocity
-	bird_velo = bird.velocity
-	# distance bird to nearest tube
-	dis_nearest_tube = tube.x - (bird.x + BIRD_WIDTH // 2)
-	# distance to top and bottum tube
-	dis_top_tube = bird_y_center - tube.y
-	dis_buttom_tube = (tube.y + GATE_HEIGHT) - bird_y_center
-
-	return [
-		bird_y_center / HEIGHT,
-		bird_velo / 10,
-		dis_nearest_tube / WIDTH,
-		dis_top_tube / HEIGHT,
-		dis_buttom_tube / HEIGHT
-	]
-
-
 while running:
-	clock.tick(60)  # fps 
+	clock.tick(FPS)  # fps 
 			
 	# Draw background
 	screen.blit(background_image, (0, 0))
@@ -247,10 +79,10 @@ while running:
 			pygame.draw.line(screen, NEON_PINK, (bird.x + BIRD_WIDTH //2, bird.y + BIRD_HEIGHT // 2), (nearest_tube.x, nearest_tube.y), width=2)
 			pygame.draw.line(screen, NEON_CYAN, (bird.x + BIRD_WIDTH //2, bird.y + BIRD_HEIGHT // 2), (nearest_tube.x, nearest_tube.y + GATE_HEIGHT), width=2)
 			inputs = get_inputs(bird, nearest_tube)
-			bird.think(inputs)
+			bird.think_and_act(inputs)
 			
 		# Check collide with sky and base
-		if bird.y <= 0 or bird.y + BIRD_HEIGHT >= HEIGHT:
+		if bird.y <= 0 or bird.y + BIRD_HEIGHT >= SCREEN_HEIGHT:
 			bird.alive = False
 			# pausing = True
 
@@ -293,7 +125,7 @@ while running:
 		# Generate new tubes
 		if tube.x <= -TUBE_WIDTH:
 			tube.x += len(tubes) * TUBE_INTERVAL
-			tube.y = random.randint(int(HEIGHT * 0.3), int(HEIGHT * 0.6))
+			tube.y = random.randint(int(SCREEN_HEIGHT * 0.3), int(SCREEN_HEIGHT * 0.6))
 			tube.passed = False		# Not plus score
 
 	# --- Draw all survival bird ---
